@@ -1,0 +1,85 @@
+# This is the configuration for Porter
+# You must define steps for each action, but the rest is optional
+# See https://porter.sh/author-bundles for documentation on how to configure your bundle
+# Uncomment out the sections below to take full advantage of what Porter can do!
+
+name: hello-yq
+version: 0.1.0
+description: "An example Porter bundle that uses yq to modify and filter yaml in a bundle."
+# TODO: update the registry to your own, e.g. myregistry
+registry: ghcr.io/squillace
+
+# If you want to customize the Dockerfile in use, uncomment the line below and update the referenced file. 
+# See https://porter.sh/custom-dockerfile/
+#dockerfile: Dockerfile.tmpl
+
+parameters:
+  - name: REPLACE_YQ_FILTER
+    type: string
+    default: ".var_resourceGroupName=$JOB_NAME | .var_deploymentId=$OTHER_NAME"
+  - name: SELECT_YQ_FILTER
+    type: string
+    default: ".var_resourceGroupName"
+
+mixins:
+  - exec
+  - jq
+  - yq
+
+outputs:
+  - name: newparams
+    type: file
+    applyTo:
+      - install
+    description: "The resulting parameters file."
+    path: newparams.yaml
+
+install:
+  - yq:
+      description: "Using the arguments method......."
+      arguments:
+        - -y
+        - --arg 
+        - JOB_NAME 
+        - bob
+        - --arg
+        - OTHER_NAME
+        - Carolyn
+        - "'{{bundle.parameters.REPLACE_YQ_FILTER}}'"
+        - keyvaultparams.yaml
+
+  - exec:
+      description: "Now replacing another way......."
+      command: yq.sh
+      arguments:
+        - '"{{bundle.parameters.REPLACE_YQ_FILTER}}"'
+
+  - yq:
+      description: "Using the selection method on original file...."
+      arguments:
+        - "{{bundle.parameters.SELECT_YQ_FILTER}}"
+        - newparams.yaml
+
+upgrade:
+  - exec:
+      description: "World 2.0"
+      command: ./helpers.sh
+      arguments:
+        - upgrade
+
+uninstall:
+  - exec:
+      description: "Uninstall Hello World"
+      command: ./helpers.sh
+      arguments:
+        - uninstall
+
+# Below is an example of how to define credentials
+# See https://porter.sh/author-bundles/#credentials
+#credentials:
+#  - name: kubeconfig
+#    path: /root/.kube/config
+#  - name: username
+#    env: USERNAME
+
+
